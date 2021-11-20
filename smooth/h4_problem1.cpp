@@ -14,8 +14,7 @@ using namespace std;
 int thread_count = 0;
 int counter[2];
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t cond_var;
-
+int partition;
 //times of smooth
 #define NSmooth 1000
 
@@ -24,21 +23,25 @@ BMPINFO bmpInfo;
 RGBTRIPLE **BMPSaveData = NULL;
 RGBTRIPLE **BMPData = NULL;
 
-int readBMP( char *fileName);        //read file
-int saveBMP( char *fileName);        //save file
+int readBMP( char *fileName); //read file
+int saveBMP( char *fileName); //save file
 void swap(RGBTRIPLE *a, RGBTRIPLE *b);
-RGBTRIPLE **alloc_memory( int Y, int X );        //allocate memory
+RGBTRIPLE **alloc_memory( int Y, int X ); //allocate memory
 void* smooth(void *);
 
-double startwtime = 0.0, endwtime=0;
 int main(int argc,char **argv)
 {
     char infileName[10] = "input.bmp";
     char outfileName[11] = "output.bmp";
-    //double startwtime = 0.0, endwtime=0;
+    double startwtime = 0.0, endwtime=0;
     
     thread_count = atoi(argv[1]);
-    pthread_t t;
+    if(thread_count == 0)
+    {
+        printf("error: 0 thread");
+        return 0;
+    }
+    pthread_t t[thread_count];
 
     //start time
     startwtime = (double)clock() / CLOCKS_PER_SEC;
@@ -54,15 +57,18 @@ int main(int argc,char **argv)
     //change two array
     swap(BMPSaveData,BMPData);
 
+    partition = bmpInfo.biWidth / thread_count;
+
     //using for busy waiting
     counter[0]=0;
     for(int i=0; i < thread_count; i++){
         int *c = (int *)malloc(sizeof(int));
         *c = i;
-        pthread_create(&t, NULL, smooth, c);
+        pthread_create(&t[i], NULL, smooth, c);
     }
 
-    pthread_join(t, NULL);
+    for(int i=0; i < thread_count; i++)
+        pthread_join(t[i], NULL);
 
     swap(BMPSaveData,BMPData);
 
@@ -76,6 +82,7 @@ int main(int argc,char **argv)
     endwtime =  (double)clock() / CLOCKS_PER_SEC;;
     cout << "The execution time = "<< endwtime-startwtime <<endl ;
 
+    pthread_mutex_destroy(&mutex);
     free(BMPData[0]);
     free(BMPSaveData[0]);
     free(BMPData);
@@ -87,12 +94,16 @@ int main(int argc,char **argv)
 void* smooth(void *data)
 {
     int *id = (int *) data;
-    int Top, Down, Left, Right;
-    for(int count = 0; count < NSmooth; count ++)
+    int Top, Down, Left, Right, i, j, count, end;
+    
+    end = partition * (*id+1);
+    if(end > bmpInfo.biWidth) end = bmpInfo.biWidth;
+
+    for(count = 0; count < NSmooth; count++)
     {
-        for(int i = 0; i<bmpInfo.biHeight; i++)
+        for(i = 0; i<bmpInfo.biHeight; i++)
         {
-            for(int j = *id; j<bmpInfo.biWidth; j+=thread_count)
+            for(j = partition * *id; j<end; j++)
             {
                 Top = (i+bmpInfo.biHeight-1)%bmpInfo.biHeight;
                 Down = (i+1)%bmpInfo.biHeight;
@@ -127,14 +138,14 @@ int readBMP(char *fileName)
         return 0;
     }
 
-    bmpFile.read( ( char* ) &bmpHeader, sizeof( BMPHEADER ) );
+    bmpFile.read( (char *) &bmpHeader, sizeof( BMPHEADER ) );
 
     if( bmpHeader.bfType != 0x4d42 )
     {
         cout << "This file is not .BMP!!" << endl ;
         return 0;
     }
-    bmpFile.read( ( char* ) &bmpInfo, sizeof( BMPINFO ) );
+    bmpFile.read( (char *) &bmpInfo, sizeof( BMPINFO ) );
     
     if ( bmpInfo.biBitCount != 24 )
     {
@@ -148,16 +159,17 @@ int readBMP(char *fileName)
     BMPSaveData = alloc_memory( bmpInfo.biHeight, bmpInfo.biWidth);
     //for(int i = 0; i < bmpInfo.biHeight; i++)
     //bmpFile.read( (char* )BMPSaveData[i], bmpInfo.biWidth*sizeof(RGBTRIPLE));
+
     bmpFile.read( (char* )BMPSaveData[0], bmpInfo.biWidth*sizeof(RGBTRIPLE)*bmpInfo.biHeight);
 
-    bmpFile.close(); 
+    bmpFile.close();
     return 1;
 }
 
 int saveBMP( char *fileName)
 {
-    //判決是否為BMP圖檔
-    if( bmpHeader.bfType != 0x4d42 ){
+    if( bmpHeader.bfType != 0x4d42 )
+    {
         cout << "This file is not .BMP!!" << endl ;
         return 0;
     }
@@ -182,7 +194,6 @@ int saveBMP( char *fileName)
     newFile.write( ( char* )BMPSaveData[0], bmpInfo.biWidth*sizeof(RGBTRIPLE)*bmpInfo.biHeight );
 
     newFile.close();
-
     return 1;
 }
 
@@ -192,9 +203,8 @@ RGBTRIPLE **alloc_memory(int Y, int X )
     RGBTRIPLE *temp2 = new RGBTRIPLE [ Y * X ];
     memset( temp, 0, sizeof( RGBTRIPLE ) * Y);
     memset( temp2, 0, sizeof( RGBTRIPLE ) * Y * X );
-    for( int i = 0; i < Y; i++){
+    for( int i = 0; i < Y; i++)
         temp[ i ] = &temp2[i*X];
-    }
 
     return temp; 
 }
