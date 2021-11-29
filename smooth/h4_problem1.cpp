@@ -100,7 +100,6 @@ void* smooth(void *data)
 
     first = partition * *id;
     end = partition * (*id+1);
-    if(end > bmpInfo.biHeight) end = bmpInfo.biHeight;
 
     if(*id == 0) up = bmpInfo.biWidth;
     else up = first - 1;
