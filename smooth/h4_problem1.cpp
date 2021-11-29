@@ -57,7 +57,7 @@ int main(int argc,char **argv)
     //change two array
     swap(BMPSaveData,BMPData);
 
-    partition = bmpInfo.biWidth / thread_count;
+    partition = bmpInfo.biHeight / thread_count;
 
     //using for busy waiting
     counter[0]=0;
@@ -94,16 +94,16 @@ int main(int argc,char **argv)
 void* smooth(void *data)
 {
     int *id = (int *) data;
-    int Top, Down, Left, Right, i, j, count, end;
+    int Top, Down, Left, Right, i, j, count, end, first;
     
     end = partition * (*id+1);
-    if(end > bmpInfo.biWidth) end = bmpInfo.biWidth;
+    first = partition * *id;
 
     for(count = 0; count < NSmooth; count++)
     {
-        for(i = 0; i<bmpInfo.biHeight; i++)
+        for(i = first; i<end; i++)
         {
-            for(j = partition * *id; j<end; j++)
+            for(j = 0; j<bmpInfo.biWidth; j++)
             {
                 Top = (i+bmpInfo.biHeight-1)%bmpInfo.biHeight;
                 Down = (i+1)%bmpInfo.biHeight;
@@ -216,4 +216,3 @@ void swap(RGBTRIPLE *a, RGBTRIPLE *b)
     a = b;
     b = temp;
 }
-
