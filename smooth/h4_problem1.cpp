@@ -34,7 +34,7 @@ int main(int argc,char **argv)
     char infileName[10] = "input.bmp";
     char outfileName[11] = "output.bmp";
     double startwtime = 0.0, endwtime=0;
- 
+    
     thread_count = atoi(argv[1]);
     if(thread_count == 0)
     {
@@ -57,7 +57,7 @@ int main(int argc,char **argv)
     //change two array
     swap(BMPSaveData,BMPData);
 
-    partition = bmpInfo.biHeight / thread_count;
+    partition = bmpInfo.biWidth / thread_count;
 
     //using for busy waiting
     counter[0]=0;
@@ -94,85 +94,37 @@ int main(int argc,char **argv)
 void* smooth(void *data)
 {
     int *id = (int *) data;
-    int Top, Down, Left, Right, i, j, k, count, end, first, up, down;
-    RGBTRIPLE **SaveData = alloc_memory( partition + 2, bmpInfo.biWidth);
-    RGBTRIPLE **Data = alloc_memory( partition + 2, bmpInfo.biWidth);
-
-    first = partition * *id;
+    int Top, Down, Left, Right, i, j, count, end;
+    
     end = partition * (*id+1);
-
-    if(*id == 0) up = bmpInfo.biWidth;
-    else up = first - 1;
-
-    if(*id == thread_count - 1) down = 0;
-    else down = end;
-
-    for(i = first, k = 1; i<end; i++, k++)
-    {
-        for(j = 0; j<bmpInfo.biWidth; j++)
-        {
-            Data[k][j].rgbBlue = BMPData[i][j].rgbBlue;
-	    Data[k][j].rgbRed = BMPData[i][j].rgbRed;
-	    Data[k][j].rgbGreen = BMPData[i][j].rgbGreen;
-        }
-    }
+    if(end > bmpInfo.biWidth) end = bmpInfo.biWidth;
 
     for(count = 0; count < NSmooth; count++)
     {
-        for(j = 0; j<bmpInfo.biWidth; j++)
+        for(i = 0; i<bmpInfo.biHeight; i++)
         {
-            Data[0][j].rgbBlue = BMPData[up][j].rgbBlue;
-            Data[0][j].rgbRed = BMPData[up][j].rgbRed;
-            Data[0][j].rgbGreen = BMPData[up][j].rgbGreen;
-            Data[partition + 1][j].rgbBlue = BMPData[down][j].rgbBlue;
-            Data[partition + 1][j].rgbRed = BMPData[down][j].rgbRed;
-            Data[partition + 1][j].rgbGreen = BMPData[down][j].rgbGreen;
-        }
-        for(i = 1; i <= partition; i++)
-        {
-            for(j = 0; j<bmpInfo.biWidth; j++)
+            for(j = partition * *id; j<end; j++)
             {
-                Top = i-1;
-                Down = i+1;
+                Top = (i+bmpInfo.biHeight-1)%bmpInfo.biHeight;
+                Down = (i+1)%bmpInfo.biHeight;
                 Left = (j+bmpInfo.biWidth-1)%bmpInfo.biWidth;
                 Right = (j+1)%bmpInfo.biWidth;
 
-                SaveData[i][j].rgbBlue =  (double) (Data[i][j].rgbBlue+Data[Top][j].rgbBlue+Data[Top][Left].rgbBlue+Data[Top][Right].rgbBlue+Data[Down][j].rgbBlue+Data[Down][Left].rgbBlue+Data[Down][Right].rgbBlue+Data[i][Left].rgbBlue+Data[i][Right].rgbBlue)/9+0.5; 
-                SaveData[i][j].rgbGreen =  (double) (Data[i][j].rgbGreen+Data[Top][j].rgbGreen+Data[Top][Left].rgbGreen+Data[Top][Right].rgbGreen+Data[Down][j].rgbGreen+Data[Down][Left].rgbGreen+Data[Down][Right].rgbGreen+Data[i][Left].rgbGreen+Data[i][Right].rgbGreen)/9+0.5; 
-                SaveData[i][j].rgbRed =  (double) (Data[i][j].rgbRed+Data[Top][j].rgbRed+Data[Top][Left].rgbRed+Data[Top][Right].rgbRed+Data[Down][j].rgbRed+Data[Down][Left].rgbRed+Data[Down][Right].rgbRed+Data[i][Left].rgbRed+Data[i][Right].rgbRed)/9+0.5;  
+                BMPSaveData[i][j].rgbBlue =  (double) (BMPData[i][j].rgbBlue+BMPData[Top][j].rgbBlue+BMPData[Top][Left].rgbBlue+BMPData[Top][Right].rgbBlue+BMPData[Down][j].rgbBlue+BMPData[Down][Left].rgbBlue+BMPData[Down][Right].rgbBlue+BMPData[i][Left].rgbBlue+BMPData[i][Right].rgbBlue)/9+0.5; 
+                BMPSaveData[i][j].rgbGreen =  (double) (BMPData[i][j].rgbGreen+BMPData[Top][j].rgbGreen+BMPData[Top][Left].rgbGreen+BMPData[Top][Right].rgbGreen+BMPData[Down][j].rgbGreen+BMPData[Down][Left].rgbGreen+BMPData[Down][Right].rgbGreen+BMPData[i][Left].rgbGreen+BMPData[i][Right].rgbGreen)/9+0.5; 
+                BMPSaveData[i][j].rgbRed =  (double) (BMPData[i][j].rgbRed+BMPData[Top][j].rgbRed+BMPData[Top][Left].rgbRed+BMPData[Top][Right].rgbRed+BMPData[Down][j].rgbRed+BMPData[Down][Left].rgbRed+BMPData[Down][Right].rgbRed+BMPData[i][Left].rgbRed+BMPData[i][Right].rgbRed)/9+0.5;  
             }
 	}
-
- 	for(j = 0; j<bmpInfo.biWidth; j++)
-        {
-            BMPData[first][j].rgbBlue = SaveData[1][j].rgbBlue;
-            BMPData[first][j].rgbRed = SaveData[1][j].rgbRed;
-            BMPData[first][j].rgbGreen = SaveData[1][j].rgbGreen;
-	    BMPData[end - 1][j].rgbBlue = SaveData[partition][j].rgbBlue;
-            BMPData[end - 1][j].rgbRed = SaveData[partition][j].rgbRed;
-            BMPData[end - 1][j].rgbGreen = SaveData[partition][j].rgbGreen;
-        }
-
         pthread_mutex_lock(&mutex);
         if(counter[count%2] == thread_count - 1)
+        {
+            swap(BMPSaveData,BMPData);
             counter[(count+1)%2]=0;
+        }
         counter[count%2]++;
         pthread_mutex_unlock(&mutex);
-        while(counter[count%2]<thread_count);
-
-        swap(SaveData,Data);
+        while(counter[count%2]<thread_count); 
     }
-
-    for(i = first, k = 1; i<end; i++, k++)
-    {
-        for(j = 0; j<bmpInfo.biWidth; j++)
-        {
-            BMPData[i][j].rgbBlue = Data[k][j].rgbBlue;
-            BMPData[i][j].rgbRed = Data[k][j].rgbRed;
-            BMPData[i][j].rgbGreen = Data[k][j].rgbGreen;
-        }
-    }
-
     return NULL;
 }
 
@@ -222,20 +174,20 @@ int saveBMP( char *fileName)
         return 0;
     }
 
-    //«Ø¥ß¿é¥XÀÉ®×ª«¥ó
+    //å»ºç«‹è¼¸å‡ºæª”æ¡ˆç‰©ä»¶
     ofstream newFile( fileName,  ios:: out | ios::binary );
 
-    //ÀÉ®×µLªk«Ø¥ß
+    //æª”æ¡ˆç„¡æ³•å»ºç«‹
     if ( !newFile )
     {
         cout << "The File can't create!!" << endl;
         return 0;
     }
 	
-    //¼g¤JBMP¹ÏÀÉªº¼ÐÀY¸ê®Æ
+    //å¯«å…¥BMPåœ–æª”çš„æ¨™é ­è³‡æ–™
     newFile.write( ( char* )&bmpHeader, sizeof( BMPHEADER ) );
 
-    //¼g¤JBMPªº¸ê°T
+    //å¯«å…¥BMPçš„è³‡è¨Š
     newFile.write( ( char* )&bmpInfo, sizeof( BMPINFO ) );
     //for( int i = 0; i < bmpInfo.biHeight; i++ )
     //newFile.write( ( char* )BMPSaveData[i], bmpInfo.biWidth*sizeof(RGBTRIPLE) );
